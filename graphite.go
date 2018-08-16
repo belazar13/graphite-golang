@@ -2,9 +2,12 @@ package graphite
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"github.com/hydrogen18/stalecucumber"
 	"log"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -91,6 +94,21 @@ func (graphite *Graphite) SendMetrics(metrics []Metric) error {
 	return graphite.sendMetrics(metrics)
 }
 
+// Given a TaggedMetric struct, the SendTaggedMetric method sends the supplied metric to the
+// Graphite connection that the method is called upon
+func (graphite *Graphite) SendTaggedMetric(metric *TaggedMetric) error {
+	metrics := make([]*TaggedMetric, 1)
+	metrics[0] = metric
+
+	return graphite.sendTaggedMetrics(metrics)
+}
+
+// Given a slice of TaggedMetric, the SendTaggedMetrics method sends the metrics, as a
+// batch, to the Graphite connection that the method is called upon
+func (graphite *Graphite) SendTaggedMetrics(metrics []*TaggedMetric) error {
+	return graphite.sendTaggedMetrics(metrics)
+}
+
 // sendMetrics is an internal function that is used to write to the TCP
 // connection in order to communicate metrics to the remote Graphite host
 func (graphite *Graphite) sendMetrics(metrics []Metric) error {
@@ -124,6 +142,70 @@ func (graphite *Graphite) sendMetrics(metrics []Metric) error {
 	if graphite.Protocol == "tcp" {
 		_, err := graphite.conn.Write(buf.Bytes())
 		//fmt.Print("Sent msg:", buf.String(), "'")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// sendTaggedMetrics is an internal function that is used to write to the TCP
+// connection in order to communicate metrics to the remote Graphite host
+func (graphite *Graphite) sendTaggedMetrics(metrics []*TaggedMetric) error {
+	if graphite.IsNop() {
+		for _, metric := range metrics {
+			log.Printf("Graphite: %s\n", metric)
+		}
+		return nil
+	}
+
+	var payload []interface{}
+
+	for _, metric := range metrics {
+		if metric.Timestamp == 0 {
+			metric.Timestamp = time.Now().Unix()
+		}
+		metricName := ""
+		if graphite.Prefix != "" {
+			metricName = fmt.Sprintf("%s.%s", graphite.Prefix, metric.Name)
+		} else {
+			metricName = metric.Name
+		}
+		if graphite.Protocol == "udp" {
+			fmt.Fprintf(graphite.conn, "%s %d %d\n", metricName, metric.Value, metric.Timestamp)
+			continue
+		}
+
+		stringBuilder := new(strings.Builder)
+		stringBuilder.WriteString(metricName)
+
+		tags := metric.GetTags()
+		if len(tags) > 0 {
+			stringBuilder.WriteString(";")
+			stringBuilder.WriteString(tags)
+		}
+
+		tuple := []interface{}{stringBuilder.String(), []interface{}{metric.Timestamp, metric.Value}}
+		payload = append(payload, tuple)
+	}
+
+	if graphite.Protocol == "tcp" {
+		bufBody := new(bytes.Buffer)
+
+		headerLength, err := stalecucumber.NewPickler(bufBody).Pickle(payload)
+		if err != nil {
+			return err
+		}
+
+		bufHeader := new(bytes.Buffer)
+		err = binary.Write(bufHeader, binary.BigEndian, uint32(headerLength))
+		if err != nil {
+			return err
+		}
+
+		bufHeader.Write(bufBody.Bytes())
+
+		_, err = graphite.conn.Write(bufHeader.Bytes())
 		if err != nil {
 			return err
 		}

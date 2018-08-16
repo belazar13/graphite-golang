@@ -1,35 +1,25 @@
 // Example of using the graphiteNop feature in action:
 //
-//     package mylib
+//	package main
 //
-//     import (
-//         "github.com/marpaia/graphite-golang"
-//         "log"
-//     )
+//	import (
+//		"log"
+//		"github.com/belazar13/graphite-golang"
+//		"time"
+//	)
 //
-//     func init() {
+//	func main() {
 //
-//         // load your configuration file / mechanism
-//         config := newConfig()
+//		Graphite, err := graphite.NewGraphite("graphite.example.com", 2004)
+//		if err != nil {
+//			log.Fatalf("%v", err)
+//		}
 //
-//         // try to connect a graphite server
-//         if config.GraphiteEnabled {
-//             Graphite, err = graphite.NewGraphite(config.Graphite.Host, config.Graphite.Port)
-//         } else {
-//             Graphite = graphite.NewGraphiteNop(config.Graphite.Host, config.Graphite.Port)
-//         }
-//         // if you couldn't connect to graphite, use a nop
-//         if err != nil {
-//             Graphite = graphite.NewGraphiteNop(config.Graphite.Host, config.Graphite.Port)
-//         }
+//		metric := graphite.NewTaggedMetric("some.value", 100, time.Now().Unix()-100)
+//		metric.AddTag(&graphite.Tag{Name: "tag1", Value: "value1"})
+//		metric.AddTag(&graphite.Tag{Name: "tag2", Value: "value2"})
 //
-//         log.Printf("Loaded Graphite connection: %#v", Graphite)
-//         Graphite.SimpleSend("stats.graphite_loaded", 1)
-//     }
-//
-//     func doWork() {
-//         // this will work just fine, regardless of if you're working with a graphite
-//         // nop or not
-//         Graphite.SimpleSend("stats.doing_work", 1)
-//     }
+//		Graphite.SendTaggedMetric(metric)
+//	}
+
 package graphite

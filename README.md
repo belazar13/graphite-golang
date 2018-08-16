@@ -2,24 +2,27 @@ graphite-golang
 ===============
 
 This is a lightweight Graphite API client written in Go that implements Carbon
-submission functionality. I wrote this a long time ago as a dependency for a side
-project a long time ago. You shouldn't rely on this for any production use-case.
+submission functionality. It allows to send Tags with metric in Pickle format.
 
 ## Installation
 
 Use `go-get` to install graphite-golang
 ```
-go get github.com/marpaia/graphite-golang
+go get github.com/belazar13/graphite-golang
 ```
 
 ## External dependencies
 
-This project has no external dependencies other than the Go standard library.
+This project has external dependencies for support Pickle
+
+```
+go get github.com/hydrogen18/stalecucumber
+```
 
 ## Documentation
 
 Like most every other Golang project, this projects documentation can be found
-on godoc at [godoc.org/github.com/marpaia/graphite-golang](http://godoc.org/github.com/marpaia/graphite-golang).
+on godoc at [godoc.org/github.com/belazar13/graphite-golang](http://godoc.org/github.com/belazar13/graphite-golang).
 
 ## Examples
 
@@ -27,7 +30,7 @@ on godoc at [godoc.org/github.com/marpaia/graphite-golang](http://godoc.org/gith
 package mylib
 
 import (
-    "github.com/marpaia/graphite-golang"
+    "github.com/belazar13/graphite-golang"
     "log"
 )
 
@@ -56,4 +59,31 @@ func doWork() {
     // nop or not
     Graphite.SimpleSend("stats.doing_work", "1")
 }
+```
+
+## Example with Tag and Pickle protocol
+
+```go
+package main
+
+import (
+	"log"
+	"github.com/belazar13/graphite-golang"
+	"time"
+)
+
+func main() {
+
+	Graphite, err := graphite.NewGraphite("graphite.example.com", 2004)
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+
+	metric := graphite.NewTaggedMetric("some.value", 100, time.Now().Unix()-100)
+	metric.AddTag(&graphite.Tag{Name: "tag1", Value: "value1"})
+	metric.AddTag(&graphite.Tag{Name: "tag2", Value: "value2"})
+
+	Graphite.SendTaggedMetric(metric)
+}
+
 ```
